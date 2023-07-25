@@ -104,8 +104,9 @@ class MyTreeReg:
             self.fi[node["split_col"]] = self.fi.get(node["split_col"], 0) + (
                 source_weight
             ) * (source_mse - (left_weight * left_mse) - (right_weight * right_mse))
-            calculate_feature_importances_for_node(node['left_node'])
-            calculate_feature_importances_for_node(node['right_node'])
+            calculate_feature_importances_for_node(node["left_node"])
+            calculate_feature_importances_for_node(node["right_node"])
+
         calculate_feature_importances_for_node(self.tree)
 
     def fit(self, X, y):
@@ -117,9 +118,10 @@ class MyTreeReg:
                 if len(col_separators) <= self.bins - 1:
                     self.separators[column] = col_separators
                 else:
-                    _, self.separators[column] = np.histogram(
+                    _, thresholds = np.histogram(
                         X[column].values, bins=self.bins
                     )
+                    self.separators[column] = thresholds[1:-1]
         self.tree = self.build_tree(X, y, depth=0)
         self.calculate_feature_importances()
 
@@ -158,7 +160,7 @@ if __name__ == "__main__":
     data = load_diabetes(as_frame=True)
     X, y = data["data"], data["target"]
 
-    model = MyTreeReg(max_depth=3, min_samples_split=2, max_leafs=1)
+    model = MyTreeReg(max_depth=5, min_samples_split=5, max_leafs=10)
     model.fit(X, y)
-    # model.print_tree()
-    print(model.predict(X))
+    model.print_tree()
+    # print(model.predict(X))
