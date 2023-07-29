@@ -27,9 +27,11 @@ class MyForestReg:
         self.bins = bins
         self.leafs_cnt = 0
         self.trees = []
+        self.fi = {}
 
     def fit(self, X, y):
         random.seed(self.random_state)
+        self.fi = {column: 0 for column in X.columns}
         for _ in range(self.n_estimators):
             cols_sample_count = int(round(len(X.columns) * self.max_features))
             rows_sample_count = int(round(X.shape[0] * self.max_samples))
@@ -42,10 +44,14 @@ class MyForestReg:
                 min_samples_split=self.min_samples_split,
                 max_leafs=self.max_leafs,
                 bins=self.bins,
+                rows_count=X.shape[0]
             )
             tree.fit(X_batch, y_batch)
             self.trees.append(tree)
             self.leafs_cnt += tree.leafs_cnt
+        for tree in self.trees:
+            for col, importance in tree.fi.items():
+                self.fi[col] = self.fi.get(col, 0) + importance
 
     def predict(self, X):
         result = []
@@ -69,4 +75,4 @@ if __name__ == "__main__":
     params = {"n_estimators": 5, "max_depth": 4, "max_features": 0.4, "max_samples": 0.3}
     model = MyForestReg(**params)
     model.fit(X, y)
-    print(model.leafs_cnt)
+    print(model.fi)

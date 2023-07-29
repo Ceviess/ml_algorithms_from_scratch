@@ -2,8 +2,35 @@ import numpy as np
 from sklearn.datasets import load_diabetes
 
 
+def calc_mse(array):
+    return np.mean(np.square(array - np.mean(array)))
+
+
+def create_separators(arr):
+    unique_values = np.sort(np.unique(arr))
+    return [
+        (left + right) / 2
+        for left, right in zip(unique_values[:-1], unique_values[1:])
+    ]
+
+
+def find_gain(data_sample, target, col, separator):
+    split_idxs = data_sample[data_sample[col] <= separator].index
+    left_idxs = split_idxs
+    right_idxs = [idx for idx in data_sample.index if idx not in left_idxs]
+    y_left = target.loc[left_idxs]
+    y_right = target.loc[right_idxs]
+    mse_parent = calc_mse(target)
+    mse_left = calc_mse(y_left)
+    mse_right = calc_mse(y_right)
+    return mse_parent - (
+            y_left.shape[0] / target.shape[0] * mse_left
+            + y_right.shape[0] / target.shape[0] * mse_right
+    )
+
+
 class MyTreeReg:
-    def __init__(self, max_depth=5, min_samples_split=2, max_leafs=20, bins=None):
+    def __init__(self, max_depth=5, min_samples_split=2, max_leafs=20, bins=None, rows_count=None):
         self.max_depth = max_depth
         self.min_samples_split = min_samples_split
         self.max_leafs = max(max_leafs, 2)
@@ -11,42 +38,19 @@ class MyTreeReg:
         self.tree = None
         self.bins = bins
         self.separators = {}
+        self.row_counts = rows_count
 
-    def create_separators(self, arr):
-        unique_values = np.sort(np.unique(arr))
-        return [
-            (left + right) / 2
-            for left, right in zip(unique_values[:-1], unique_values[1:])
-        ]
-
-    def calc_mse(self, y):
-        return np.mean(np.square(y - np.mean(y)))
-
-    def find_gain(self, X, y, col, separator):
-        split_idxs = X[X[col] <= separator].index
-        left_idxs = split_idxs
-        right_idxs = [idx for idx in X.index if idx not in left_idxs]
-        y_left = y.loc[left_idxs]
-        y_right = y.loc[right_idxs]
-        mse_parent = self.calc_mse(y)
-        mse_left = self.calc_mse(y_left)
-        mse_right = self.calc_mse(y_right)
-        return mse_parent - (
-            y_left.shape[0] / y.shape[0] * mse_left
-            + y_right.shape[0] / y.shape[0] * mse_right
-        )
-
-    def get_best_split(self, X, y):
+    def get_best_split(self, data_sample, target):
         best_gain = -float("inf")
         best_col = None
         best_split_value = None
-        for col in X.columns:
+        for col in data_sample.columns:
             if not self.bins:
-                separators = self.create_separators(X[col].values)
+                separators = create_separators(data_sample[col].values)
             else:
                 separators = self.separators[col]
             for separator in separators:
-                gain = self.find_gain(X, y, col, separator)
+                gain = find_gain(data_sample, target, col, separator)
                 if gain > best_gain:
                     best_gain = gain
                     best_split_value = separator
@@ -96,10 +100,10 @@ class MyTreeReg:
             if node["is_leaf"]:
                 return 0
             left_weight = node["left_node"]["y_count"] / node["y_count"]
-            left_mse = self.calc_mse(node["left_node"]["y_values"])
-            right_mse = self.calc_mse(node["right_node"]["y_values"])
+            left_mse = calc_mse(node["left_node"]["y_values"])
+            right_mse = calc_mse(node["right_node"]["y_values"])
             right_weight = node["right_node"]["y_count"] / node["y_count"]
-            source_mse = self.calc_mse(node["y_values"])
+            source_mse = calc_mse(node["y_values"])
             source_weight = node["y_count"] / self.x_shape
             self.fi[node["split_col"]] = self.fi.get(node["split_col"], 0) + (
                 source_weight
@@ -110,11 +114,11 @@ class MyTreeReg:
         calculate_feature_importances_for_node(self.tree)
 
     def fit(self, X, y):
-        self.x_shape = X.shape[0]
+        self.x_shape = self.row_counts if self.row_counts else X.shape[0]
         self.fi = {col: 0 for col in X.columns}
         if self.bins:
             for column in X.columns:
-                col_separators = self.create_separators(X[column].values)
+                col_separators = create_separators(X[column].values)
                 if len(col_separators) <= self.bins - 1:
                     self.separators[column] = col_separators
                 else:
