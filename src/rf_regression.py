@@ -97,7 +97,7 @@ class MyForestReg:
 
         self.oob_score_ = sum(self.oob_metrics) / len(self.oob_metrics)
         for tree in self.trees:
-            for col, importance in tree.fi.items():
+            for col, importance in tree.feat_importances.items():
                 self.fi[col] = self.fi.get(col, 0) + importance
 
     def predict(self, X):
