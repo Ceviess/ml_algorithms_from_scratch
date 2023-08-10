@@ -99,7 +99,7 @@ class MyLineReg:
         self.learning_rate = learning_rate
         self.weights = None
         self.metric = metric
-        self.metric_dict = {
+        self.calc_metric = {
             "mae": self.calc_mae,
             "mse": self.calc_mse,
             "rmse": self.calc_rmse,
@@ -206,19 +206,14 @@ class MyLineReg:
         :return: The calculated loss.
         :rtype: float
         """
-        if not self.reg:
-            loss = np.mean(np.square(y_pred - y_true))
-        elif self.reg == "l1":
-            loss = np.mean(np.square(y_pred - y_true)) + self.l1_coef * np.sum(
-                np.abs(self.weights)
-            )
-        elif self.reg == "l2":
-            loss = np.mean(np.square(y_pred - y_true)) + self.l2_coef * np.sum(
-                np.square(self.weights)
-            )
-        else:
+        loss = self.calc_mse(y_true, y_pred)
+        if self.reg == "l1":
+            loss += self.l1_coef * np.sum(np.abs(self.weights))
+        if self.reg == "l2":
+            loss += self.l2_coef * np.sum(np.square(self.weights))
+        if self.reg == "elasticnet":
             loss = (
-                np.mean(np.square(y_pred - y_true))
+                loss
                 + self.l1_coef * np.sum(np.abs(self.weights))
                 + self.l2_coef * np.sum(np.square(self.weights))
             )
@@ -243,20 +238,15 @@ class MyLineReg:
         :rtype: np.ndarray
         """
         n_rows = y_true.shape[0]
-        if not self.reg:
-            grad = 2 / n_rows * np.dot(np.transpose(predictions - y_true), data)
-        elif self.reg == "l1":
-            grad = 2 / n_rows * np.dot(
-                np.transpose(predictions - y_true), data
-            ) + self.l1_coef * np.sign(self.weights)
-        elif self.reg == "l2":
+        delta = np.transpose(predictions - y_true)
+        grad = 2 / n_rows * np.dot(delta, data)
+        if self.reg == "l1":
+            grad += self.l1_coef * np.sign(self.weights)
+        if self.reg == "l2":
+            grad += self.l2_coef * 2 * self.weights
+        if self.reg == "elasticnet":
             grad = (
-                2 / n_rows * np.dot(np.transpose(predictions - y_true), data)
-                + self.l2_coef * 2 * self.weights
-            )
-        else:
-            grad = (
-                2 / n_rows * np.dot(np.transpose(predictions - y_true), data)
+                grad
                 + self.l1_coef * np.sign(self.weights)
                 + self.l2_coef * 2 * self.weights
             )
@@ -328,7 +318,7 @@ class MyLineReg:
             grad = self.calc_grad(data_batch, y_batch, predictions)
             self.weights -= self.calc_learning_rate(iteration + 1) * grad
             updated_predictions = np.dot(data, self.weights)
-            metric_value = self.metric_dict[self.metric](labels, updated_predictions)
+            metric_value = self.calc_metric[self.metric](labels, updated_predictions)
             self.best_score = metric_value
             if not verbose:
                 continue
