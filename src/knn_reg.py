@@ -1,3 +1,6 @@
+import numpy as np
+
+
 class MyKNNReg:
     def __init__(self, k=3, metric="euclidean", weight="uniform"):
         self.k = k

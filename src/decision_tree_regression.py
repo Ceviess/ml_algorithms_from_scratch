@@ -9,8 +9,7 @@ def calc_mse(array):
 def create_separators(arr):
     unique_values = np.sort(np.unique(arr))
     return [
-        (left + right) / 2
-        for left, right in zip(unique_values[:-1], unique_values[1:])
+        (left + right) / 2 for left, right in zip(unique_values[:-1], unique_values[1:])
     ]
 
 
@@ -24,13 +23,15 @@ def find_gain(data_sample, target, col, separator):
     mse_left = calc_mse(y_left)
     mse_right = calc_mse(y_right)
     return mse_parent - (
-            y_left.shape[0] / target.shape[0] * mse_left
-            + y_right.shape[0] / target.shape[0] * mse_right
+        y_left.shape[0] / target.shape[0] * mse_left
+        + y_right.shape[0] / target.shape[0] * mse_right
     )
 
 
 class MyTreeReg:
-    def __init__(self, max_depth=5, min_samples_split=2, max_leafs=20, bins=None, rows_count=None):
+    def __init__(
+        self, max_depth=5, min_samples_split=2, max_leafs=20, bins=None, rows_count=None
+    ):
         self.max_depth = max_depth
         self.min_samples_split = min_samples_split
         self.max_leafs = max(max_leafs, 2)
@@ -117,15 +118,14 @@ class MyTreeReg:
         self.x_shape = self.row_counts if self.row_counts else X.shape[0]
         self.fi = {col: 0 for col in X.columns}
         if self.bins:
-            for column in X.columns:
-                col_separators = create_separators(X[column].values)
-                if len(col_separators) <= self.bins - 1:
-                    self.separators[column] = col_separators
-                else:
-                    _, thresholds = np.histogram(
-                        X[column].values, bins=self.bins
-                    )
-                    self.separators[column] = thresholds[1:-1]
+            separators = [create_separators(X[column].values) for column in X.columns]
+            self.separators = {
+                column: sep
+                if len(sep) <= (self.bins - 1)
+                else np.histogram(X[column].values, bins=self.bins)[1][1:-1]
+                for sep, column in zip(separators, X.columns)
+            }
+
         self.tree = self.build_tree(X, y, depth=0)
         self.calculate_feature_importances()
 
@@ -138,10 +138,7 @@ class MyTreeReg:
             return self.find_value(row, node["right_node"])
 
     def predict(self, X):
-        result = []
-        for idx, row in X.iterrows():
-            result.append(self.find_value(row, self.tree))
-        return np.array(result)
+        return np.array([self.find_value(row, self.tree) for _, row in X.iterrows()])
 
     def print_tree(self):
         def print_node(node, indent):
@@ -166,5 +163,5 @@ if __name__ == "__main__":
 
     model = MyTreeReg(max_depth=5, min_samples_split=5, max_leafs=10)
     model.fit(X, y)
-    model.print_tree()
-    # print(model.predict(X))
+    # model.print_tree()
+    print(model.predict(X))
